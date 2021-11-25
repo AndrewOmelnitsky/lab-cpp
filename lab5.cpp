@@ -1,4 +1,3 @@
-// #include <stdafx.h>
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -108,59 +107,70 @@ public:
 class ComplexNumber
 {
 private:
-    void string_init(string num_str){
-      float new_re = 0;
-      float new_im = 0;
-      int temp_num = 0;
-      bool is_swap = 0;
-      bool all_im = 0;
-      int i = 0, sign_re = 1, sign_im = 1;
-      // cout << "input str: " << num_str << endl;
-      if (num_str[0] == '-')
-      {
-          sign_re = -1;
-          i++;
-      }
-      for (; i < num_str.length(); i++)
-      {
-          if (num_str[i] == 'i') {
+    void string_init(string num_str) {
+        float new_re = 0;
+        float new_im = 0;
+        int temp_num = 0;
+        bool is_swap = 0;
+        bool all_im = 0;
+        bool is_fill_re = 0;
+        bool is_fill_im = 0;
+        int i = 0, sign_re = 1, sign_im = 1;
+        if (num_str[0] == '-')
+        {
+            sign_re = -1;
+            i++;
+        }
+        for (; i < num_str.length(); i++)
+        {
+            if (num_str[i] == 'i') {
+                if (!is_swap) {
+                    if (!is_fill_re)
+                    {
+                        new_re = 1;
+                    }
+                    all_im = 1;
+                }
+                if (!is_fill_im)
+                {
+                    new_im = 1;
+                }
+                break;
+            }
+            if (num_str[i] == '+' || num_str[i] == '-') {
+                is_swap = 1;
+                if (num_str[i] == '-') {
+                    sign_im = -1;
+                }
+                continue;
+            }
             if (!is_swap) {
-              all_im = 1;
+                new_re *= 10;
+                if (num_str[i] > '9' || num_str[i] < '0')
+                {
+                    throw ComplexNumberStringConstructorException(num_str[i]);
+                }
+                new_re += (num_str[i] - '0');
+                is_fill_re = 1;
             }
-            break;
-          }
-          if (num_str[i] == '+' || num_str[i] == '-') {
-            is_swap = 1;
-            if (num_str[i] == '-') {
-                sign_im = -1;
+            else {
+                new_im *= 10;
+                if (num_str[i] > '9' || num_str[i] < '0')
+                {
+                    throw ComplexNumberStringConstructorException(num_str[i]);
+                }
+                new_im += (num_str[i] - '0');
+                is_fill_im = 1;
             }
-            continue;
-          }
-          if (!is_swap) {
-            new_re *= 10;
-            if (num_str[i] > '9' || num_str[i] < '0')
-            {
-              throw ComplexNumberStringConstructorException(num_str[i]);
-            }
-            new_re += (num_str[i] - '0');
-          }
-          else{
-            new_im *= 10;
-            if (num_str[i] > '9' || num_str[i] < '0')
-            {
-              throw ComplexNumberStringConstructorException(num_str[i]);
-            }
-            new_im += (num_str[i] - '0');
-          }
-      }
-      if (!all_im) {
-        *re = sign_re * new_re;
-        *im = sign_im * new_im;
-      }
-      else{
-        *re = 0;
-        *im = sign_re * new_re;
-      }
+        }
+        if (!all_im) {
+            *re = sign_re * new_re;
+            *im = sign_im * new_im;
+        }
+        else {
+            *re = 0;
+            *im = sign_re * new_re;
+        }
     }
 
 public:
@@ -179,7 +189,7 @@ public:
     }
 
     ComplexNumber(string num_s) {
-      string_init(num_s);
+        string_init(num_s);
     };
 
     ComplexNumber(const char* num_s) {
@@ -356,7 +366,7 @@ public:
         }
 
         ss_im << abs(*im);
-        return ss_re.str() + (*im > 0 ? "+" : "-") + ss_im.str() + "i";
+        return ss_re.str() + (*im > 0 ? "+" : "-") + ((*im != 1 && *im != -1) ? ss_im.str()+"i" : "i");
     }
 
     friend ostream& operator<< (std::ostream& out, ComplexNumber num) {
@@ -364,6 +374,7 @@ public:
         return out;
     };
 };
+
 
 bool operator == (ComplexNumber num1, ComplexNumber num2)
 {
@@ -394,17 +405,17 @@ bool operator <= (ComplexNumber num1, ComplexNumber num2)
 
 class BaseExpression {
 private:
-  // shared_ptr<BaseExpression> shared_this;
+    // shared_ptr<BaseExpression> shared_this;
 public:
     virtual ComplexNumber count_value() = 0;
     virtual void print_expression() = 0;
-    virtual void print_structure(string prefix = "") = 0;
+    virtual void print_structure(int depth = 0, bool is_right = false, bool* rec = new bool[10000]) = 0;
     virtual bool find(ComplexNumber num) = 0;
     virtual int size() = 0;
     virtual pair<int, shared_ptr<BaseExpression>> get_by_id(int n) = 0;
 
-    BaseExpression(){
-      // shared_this = shared_ptr<BaseExpression>(this);
+    BaseExpression() {
+        // shared_this = shared_ptr<BaseExpression>(this);
     };
 };
 
@@ -430,82 +441,116 @@ public:
     }
 
     void print_expression() override {
-      cout << "[" << value << "]";
+        cout << "[" << value << "]";
     }
 
     bool find(ComplexNumber num) override {
-      return (value == num);
+        return (value == num);
     }
 
-    void print_structure(string prefix = "") override {
-      prefix += "|_";
-      cout << prefix << value << endl;
+    void print_structure(int depth = 0, bool is_right = false, bool* rec = new bool[10000]) override {
+        for (int i = 0; i < depth; i++) {
+            if (i == depth - 1 && is_right)
+            {
+                cout << " |";
+            }
+            else {
+                if (rec[i])
+                {
+                    cout << " |";
+                }
+                else {
+                    cout << "  ";
+                }
+            }
+        }
+
+        cout << "_" << value << " id: " << this << endl;
     }
 
     int size() override {
-      return 1;
+        return 1;
     }
 
     pair<int, shared_ptr<BaseExpression>> get_by_id(int n) override {
-      // cout << n-1 << endl;
-      shared_ptr<BaseExpression> res(this);
-      return pair<int, shared_ptr<BaseExpression>>{n-1, res};
+        // cout << n-1 << endl;
+        shared_ptr<BaseExpression> res(this);
+        if (n == 0)
+        {
+            return pair<int, shared_ptr<BaseExpression>>{0, res};
+        }
+        return pair<int, shared_ptr<BaseExpression>>{n - 1, res};
     }
 };
 
 
 class BracketExpression :public BaseExpression {
 private:
-  shared_ptr<BaseExpression> expression;
-  char start_bracket = '(';
-  char end_bracket = ')';
+    shared_ptr<BaseExpression> expression;
+    char start_bracket = '(';
+    char end_bracket = ')';
 
 public:
-  BracketExpression() :BaseExpression() {};
-  BracketExpression(shared_ptr<BaseExpression> be) :BaseExpression() {
-      expression = be;
-  }
-  BracketExpression(const BracketExpression* be) :BaseExpression() {
-      expression = be->expression;
-  }
-  ~BracketExpression() {
-      // expression.reset();
-  }
-
-  void print_expression() override {
-    cout << start_bracket;
-    expression->print_expression();
-    cout << end_bracket;
-  }
-
-  ComplexNumber count_value() override {
-      return expression->count_value();
-  }
-
-  bool find(ComplexNumber num) override {
-    return expression->find(num);
-  }
-
-  void print_structure(string prefix = "") override {
-    prefix += "|";
-    cout << prefix << "_" << start_bracket << end_bracket << endl;
-    prefix += " ";
-    expression->print_structure(prefix);
-  }
-
-  int size() override {
-    return expression->size()+1;
-  }
-
-  pair<int, shared_ptr<BaseExpression>> get_by_id(int n) override {
-    // cout << "BracketExpression " << n << endl;
-    if (n == 0) {
-      shared_ptr<BaseExpression> res(this);
-      return pair<int, shared_ptr<BaseExpression>>{n, res};
+    BracketExpression() :BaseExpression() {};
+    BracketExpression(shared_ptr<BaseExpression> be) :BaseExpression() {
+        expression = be;
     }
-    n -= 1;
-    return expression->get_by_id(n);
-  }
+    BracketExpression(const BracketExpression* be) :BaseExpression() {
+        expression = be->expression;
+    }
+    ~BracketExpression() {
+        // expression.reset();
+    }
+
+    void print_expression() override {
+        cout << start_bracket;
+        expression->print_expression();
+        cout << end_bracket;
+    }
+
+    ComplexNumber count_value() override {
+        return expression->count_value();
+    }
+
+    bool find(ComplexNumber num) override {
+        return expression->find(num);
+    }
+    
+    void print_structure(int depth = 0, bool is_right = false, bool* rec = new bool[10000]) override {
+        for (int i = 0; i < depth; i++) {
+            if (i == depth - 1 && is_right)
+            {
+                cout << " |";
+            }
+            else {
+                if (rec[i])
+                {
+                    cout << " |";
+                }
+                else {
+                    cout << "  ";
+                }
+            }
+        }
+
+        cout << "_" << start_bracket << end_bracket << endl;
+        rec[depth] = 0;
+        expression->print_structure(depth + 1, 1, rec);
+    }
+
+    int size() override {
+        return expression->size() + 1;
+    }
+
+    pair<int, shared_ptr<BaseExpression>> get_by_id(int n) override {
+        // cout << "BracketExpression " << n << endl;
+        if (n == 0) {
+            shared_ptr<BaseExpression> res(this);
+            return pair<int, shared_ptr<BaseExpression>>{n, res};
+        }
+        n -= 1;
+        return expression->get_by_id(n);
+    }
 };
 
 
@@ -515,9 +560,9 @@ private:
     // virtual void op_init(){
     //   op = '\0';
     // }
-    virtual char get_op(){
-      return op;
-      // return static_cast<BinaryExpression>(this)->op;
+    virtual char get_op() {
+        return op;
+        // return static_cast<BinaryExpression>(this)->op;
     }
 public:
     char op;
@@ -529,7 +574,7 @@ public:
         left = new_left;
         right = new_right;
     }
-    BinaryExpression():BaseExpression() {
+    BinaryExpression() :BaseExpression() {
         // op_init();
     };
     BinaryExpression(const BinaryExpression* be) :BaseExpression() {
@@ -549,40 +594,56 @@ public:
     // }
 
     void print_expression() override {
-      left->print_expression();
-      cout << get_op();
-      right->print_expression();
+        left->print_expression();
+        cout << get_op();
+        right->print_expression();
     }
 
     bool find(ComplexNumber num) override {
-      return (left->find(num) || right->find(num));
+        return (left->find(num) || right->find(num));
     }
 
-    void print_structure(string prefix = "") override {
-      prefix += "|";
-      cout << prefix << "_" << get_op() << endl;
-      prefix += " ";
-      left->print_structure(prefix);
-      right->print_structure(prefix);
+    void print_structure(int depth = 0, bool is_right = false, bool* rec = new bool[10000]) override {
+        for (int i = 0; i < depth; i++) {
+            if (i == depth-1 && is_right)
+            {
+                cout << " |";
+            }
+            else {
+                if (rec[i])
+                {
+                    cout << " |";
+                }
+                else {
+                    cout << "  ";
+                }
+            }
+        }
+
+        cout << "_" << get_op() << endl;
+        rec[depth] = 1;
+        left->print_structure(depth + 1, 0, rec);
+        rec[depth] = 0;
+        right->print_structure(depth + 1, 1, rec);
     }
 
     int size() override {
-      return left->size()+right->size()+1;
+        return left->size() + right->size() + 1;
     }
 
     pair<int, shared_ptr<BaseExpression>> get_by_id(int n) override {
-      // cout << "BinaryExpression " << n << endl;
-      if (n == 0) {
-        shared_ptr<BaseExpression> res(this);
-        return pair<int, shared_ptr<BaseExpression>>{n, res};
-      }
-      n -= 1;
-      auto temp_l = left->get_by_id(n);
-      n = temp_l.first;
-      if (n == 0) {
-        return temp_l;
-      }
-      return right->get_by_id(n);
+        // cout << "BinaryExpression " << n << endl;
+        if (n == 0) {
+            shared_ptr<BaseExpression> res(this);
+            return pair<int, shared_ptr<BaseExpression>>{n, res};
+        }
+        n -= 1;
+        auto temp_l = left->get_by_id(n);
+        n = temp_l.first;
+        if (n == 0) {
+            return temp_l;
+        }
+        return right->get_by_id(n);
     }
 };
 
@@ -592,8 +653,8 @@ class ProductExpression : public BinaryExpression
 private:
 public:
     char op = '*';
-    char get_op() override{
-      return op;
+    char get_op() override {
+        return op;
     }
     // void op_init() override{
     //   set_op<ProductExpression>();
@@ -601,10 +662,10 @@ public:
     ProductExpression(
         shared_ptr<BaseExpression> new_left,
         shared_ptr<BaseExpression> new_right)
-          :BinaryExpression(new_left, new_right)
+        :BinaryExpression(new_left, new_right)
     {};
 
-    ~ProductExpression(){};
+    ~ProductExpression() {};
 
     ComplexNumber count_value() override {
         return left->count_value() * right->count_value();
@@ -617,8 +678,8 @@ class DivisionExpression : public BinaryExpression
 private:
 public:
     char op = '/';
-    char get_op() override{
-      return op;
+    char get_op() override {
+        return op;
     }
 
     DivisionExpression(
@@ -638,8 +699,8 @@ class SumExpression : public BinaryExpression
 private:
 public:
     char op = '+';
-    char get_op() override{
-      return op;
+    char get_op() override {
+        return op;
     }
 
     SumExpression(
@@ -659,8 +720,8 @@ class DifferenceExpression : public BinaryExpression
 private:
 public:
     char op = '-';
-    char get_op() override{
-      return op;
+    char get_op() override {
+        return op;
     }
 
     DifferenceExpression(
@@ -677,113 +738,347 @@ public:
 
 class ArithmeticExpression {
 private:
-  shared_ptr<BaseExpression> expression;
+    shared_ptr<BaseExpression> expression;
 public:
-  ArithmeticExpression(){};
-  ArithmeticExpression(shared_ptr<BaseExpression> new_expression){
-    expression = new_expression;
-  }
-
-  ~ArithmeticExpression(){
-    // expression.reset();
-  }
-
-  void set_expression(shared_ptr<BaseExpression> new_expression){
-    expression = new_expression;
-  }
-
-  shared_ptr<BaseExpression> get_expression(){
-    return expression;
-  }
-
-  void print_expression(){
-    expression->print_expression();
-    cout << endl;
-  }
-
-  ComplexNumber count_value(){
-    return expression->count_value();
-  }
-
-  void print_structure(){
-    expression->print_structure();
-  }
-
-  bool find(ComplexNumber num){
-    return expression->find(num);
-  }
-
-  int size(){
-    return expression->size();
-  }
-
-  int use_count(){
-    return expression.use_count();
-  }
-
-  shared_ptr<BaseExpression> get_by_id(int n) {
-    cout << "strat getting id" << endl;
-    auto ans = expression->get_by_id(n);
-    if (ans.first > 0) {
-      cout << "un find elm" << endl;
-    }
-    cout << "false print(";
-    ans.second->print_expression();
-    cout << ")" << endl;
-    // cout << "end getting id" << endl;
-    return ans.second;
-  }
-
-  class Iterator{
-    shared_ptr<BaseExpression> it_expression;
-    int i;
-    ArithmeticExpression* it_obj;
-  public:
-
-    Iterator(ArithmeticExpression* new_it_obj) :it_obj(new_it_obj)
-    {}
-
-    Iterator(shared_ptr<BaseExpression>start,
-      ArithmeticExpression* new_it_obj)
-    {
-      it_obj = new_it_obj;
-      it_expression = start;
+    ArithmeticExpression() {};
+    ArithmeticExpression(shared_ptr<BaseExpression> new_expression) {
+        expression = new_expression;
     }
 
-    Iterator(int n, ArithmeticExpression* new_it_obj){
-      it_obj = new_it_obj;
-      auto ans = new_it_obj->get_by_id(i);
-      it_expression = ans;
+    ~ArithmeticExpression() {
+        // expression.reset();
     }
 
-    ~Iterator(){
-      // it_expression.reset();
+    void set_expression(shared_ptr<BaseExpression> new_expression) {
+        expression = new_expression;
     }
 
-    Iterator operator+ (int n) { return Iterator(i+n, it_obj); }
-    Iterator operator- (int n) { return Iterator(i-n, it_obj); }
+    shared_ptr<BaseExpression> get_expression() {
+        return expression;
+    }
 
-    Iterator operator++ (int) { return Iterator(i++, it_obj); }
-    Iterator operator-- (int) { return Iterator(i--, it_obj); }
-    Iterator operator++ () { return Iterator(--i, it_obj); }
-    Iterator operator-- () { return Iterator(++i, it_obj); }
+    void print_expression() {
+        expression->print_expression();
+        cout << endl;
+    }
 
-    bool operator== (const Iterator& it) { return it.i == i; }
-    bool operator!= (const Iterator& it) { return it.i != i; }
+    ComplexNumber count_value() {
+        return expression->count_value();
+    }
 
-    shared_ptr<BaseExpression> operator* () { return it_expression; }
-  };
+    void print_structure() {
+        expression->print_structure();
+    }
 
-  Iterator begin(){
-    return Iterator(0, this);
-  }
+    bool find(ComplexNumber num) {
+        return expression->find(num);
+    }
 
-  Iterator end(){
-    Iterator it(expression->size()+1, this);
-    return it;
-  }
+    int size() {
+        return expression->size();
+    }
+
+    int use_count() {
+        return expression.use_count();
+    }
+
+    shared_ptr<BaseExpression> get_by_id(int n) {
+        // cout << "strat getting id" << endl;
+        if (n < 0 || n > expression->size())
+        {
+            cout << "index out of rangne" << endl;
+        }
+        auto ans = expression->get_by_id(n);
+        //if (ans.first > 0) {
+        //    cout << "un find elm" << endl;
+        //}
+        cout << "false print(";
+        ans.second->print_expression();
+        cout << ")" << endl;
+        // cout << "end getting id" << endl;
+        return ans.second;
+    }
+
+    shared_ptr<BaseExpression> operator[] (int n) {
+        return this->get_by_id(n);
+    }
+
+    class Iterator {
+        int i = 0;
+        shared_ptr<ArithmeticExpression> it_obj;
+    public:
+
+        Iterator(shared_ptr<ArithmeticExpression> new_it_obj) :it_obj(new_it_obj)
+        {}
+
+        Iterator(int n, shared_ptr<ArithmeticExpression> new_it_obj) {
+            it_obj = new_it_obj;
+            i = n;
+        }
+
+        ~Iterator() {
+            cout << "Iterator destructor" << endl;
+        }
+
+        Iterator operator+ (int n) { return Iterator(i + n, it_obj); }
+        Iterator operator- (int n) { return Iterator(i - n, it_obj); }
+
+        Iterator operator++ (int) { return Iterator(i++, it_obj); }
+        Iterator operator-- (int) { return Iterator(i--, it_obj); }
+        Iterator operator++ () { return Iterator(--i, it_obj); }
+        Iterator operator-- () { return Iterator(++i, it_obj); }
+
+        bool operator== (const Iterator& it) { return it.i == i; }
+        bool operator!= (const Iterator& it) { return it.i != i; }
+
+        shared_ptr<BaseExpression> operator* () { return it_obj->get_by_id(i); }
+    };
+
+    Iterator begin() {
+        shared_ptr<ArithmeticExpression> shared_this(this);
+        return Iterator(0, shared_this);
+    }
+
+    Iterator end() {
+        int exp_size = expression->size();
+        shared_ptr<ArithmeticExpression> shared_this(this);
+        Iterator it(exp_size, shared_this);
+        return it;
+    }
 };
 
+
+template< typename T >
+class VectorAnalog {
+private:
+    struct Node {
+        Node() : next(NULL), last(NULL)
+        { }
+
+        Node(const T& t) : value(t), next(NULL), last(NULL)
+        { }
+
+        T value;
+
+        Node* next;
+        Node* last;
+    };
+
+    Node* head;
+
+public:
+    class Iterator {
+    public:
+        Iterator(Node* node) : value_node(node) { }
+
+        bool operator==(const Iterator& iter) const {
+            if (this == &iter) {
+                return true;
+            }
+            return value_node == iter.value_node;
+        }
+
+        bool operator!=(const Iterator& iter) const {
+            return !operator==(iter);
+        }
+
+        T operator*() const {
+            if (value_node) {
+                return value_node->value;
+            }
+            return T();
+        }
+
+        Iterator operator++ (int) {
+            if (value_node) {
+                Iterator new_iter(value_node);
+                value_node = value_node->next;
+                return new_iter;
+            }
+        }
+        Iterator operator-- (int) {
+            if (value_node) {
+                Iterator new_iter(value_node);
+                value_node = value_node->last;
+                return new_iter;
+            }
+        }
+        Iterator operator++ () {
+            if (value_node) {
+                value_node = value_node->next;
+                return Iterator(value_node);
+            }
+        }
+        Iterator operator-- () {
+            if (value_node) {
+                value_node = value_node->last;
+                return Iterator(value_node);
+            }
+        }
+
+        Iterator operator+ (int n) {
+            Iterator iter(this->value_node);
+            for (int i = 0; i < n; i++)
+            {
+                iter++;
+            }
+            return iter;
+        }
+
+        Iterator operator- (int n) {
+            Iterator iter(this->value_node);
+            for (int i = 0; i < n; i++)
+            {
+                iter--;
+            }
+            return iter;
+        }
+
+        Iterator operator-= (int n) {
+            for (int i = 0; i < n; i++)
+            {
+                if (value_node)
+                {
+                    value_node = value_node->last;
+                }
+                else {
+                    cout << "index out of range n: " << n << endl;
+                }
+            }
+            Iterator new_iter(value_node);
+            return new_iter;
+        }
+
+        Iterator operator+= (int n) {
+            for (int i = 0; i < n; i++)
+            {
+                if (value_node)
+                {
+                    value_node = value_node->next;
+                }
+                else {
+                    cout << "index out of range n: " << n << endl;
+                }
+            }
+            Iterator new_iter(value_node);
+            return new_iter;
+        }
+
+        Node* get_node() {
+            return value_node;
+        }
+
+    private:
+        Node* value_node;
+    };
+
+    VectorAnalog() :head(NULL) {};
+
+    ~VectorAnalog() {
+        while (head) {
+            pop();
+        }
+    };
+
+    void append(const T& new_node) {
+        Node* node = new Node(new_node);
+        if (head)
+        {
+            head->last = node;
+            node->next = head;
+        }
+        else
+        {
+            node->next = head;
+        }
+        
+
+        head = node;
+    }
+
+    void pop(int n = -1) {
+        Iterator iter = begin();
+        Node* del_item;
+        if (n == -1)
+        {
+            iter = end();
+        }
+        else {
+            iter += n;
+        }
+        del_item = iter.get_node();
+        if (del_item)
+        {
+            if (iter == begin())
+            {
+                head = del_item->next;
+            }
+            else if (iter == end()) {
+
+            }
+            else {
+
+            }
+            del_item->last->next = del_item->next;
+            del_item->next->last = del_item->last;
+            delete del_item;
+        }
+        
+        for (; iter != end(); iter++)
+        {
+
+        }
+        if (head) {
+            Node* new_head = head->next;
+
+            delete head;
+
+            head = new_head;
+        }
+    };
+
+    T get_head() {
+        return head;
+    }
+
+    T get_tail() {
+        return *(last());
+    }
+
+    Iterator begin() {
+        return Iterator(head);
+    }
+
+    Iterator end() {
+        return Iterator(NULL);
+    }
+
+    Iterator last() {
+        Iterator result;
+        Iterator temp;
+        for (Iterator i = begin(); i != end(); i++)
+        {
+            temp = i;
+            result = temp;
+        }
+
+        return result;
+    }
+
+    int size() {
+        int s = 0;
+        for (Iterator it = begin(); it != end(); it++) {
+            s++;
+        }
+
+        return s;
+    }
+
+    bool empty() {
+        return head == NULL;
+    }
+
+};
 
 
 class instream {
@@ -830,8 +1125,8 @@ public:
         return *this;
     }
 
-    bool empty(){
-      return stream_vect.empty();
+    bool empty() {
+        return stream_vect.empty();
     }
 
     string str() {
@@ -849,18 +1144,18 @@ class ExpressionConverterUndefindVariable : public exception
 private:
 
 public:
-  string m_error;
+    string m_error;
 
-  ExpressionConverterUndefindVariable()
-  {
-    m_error = "expression convertor exception";
-  }
-  ExpressionConverterUndefindVariable(string error)
-  {
-    m_error = error;
-  }
+    ExpressionConverterUndefindVariable()
+    {
+        m_error = "expression convertor exception";
+    }
+    ExpressionConverterUndefindVariable(string error)
+    {
+        m_error = error;
+    }
 
-  const char* what() const noexcept { return m_error.c_str(); }
+    const char* what() const noexcept { return m_error.c_str(); }
 };
 
 
@@ -869,73 +1164,77 @@ class VariableConverterVariableException : public exception
 private:
 
 public:
-  string m_error;
+    string m_error;
 
-  VariableConverterVariableException()
-  {
-    m_error = "expression convertor exception";
-  }
-  VariableConverterVariableException(string error)
-  {
-    m_error = error;
-  }
+    VariableConverterVariableException()
+    {
+        m_error = "expression convertor exception";
+    }
+    VariableConverterVariableException(string error)
+    {
+        m_error = error;
+    }
 
-  const char* what() const noexcept { return m_error.c_str(); }
+    const char* what() const noexcept { return m_error.c_str(); }
 };
+
 
 class VariableConverter {
 private:
-  instream stream;
-  char stop_char = ';';
+    instream stream;
+    char stop_char = ';';
 
-  pair<string, ComplexNumber> pars_stream(){
-    string variable_name;
-    while(!stream.empty()){
-      char c = stream.get();
-      if (c == '=') {
-        break;
-      }
-      else if ('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_') {
-          variable_name += c;
-      }
-      else if ('0' <= c && c <= '9') {
-          if (!variable_name.empty())
-          {
-              variable_name += c;
-          }
-          else{
-              throw VariableConverterVariableException("number can not be used as variable name");
-          }
-      }
-      else {
-          throw VariableConverterVariableException((string)"this char csn not be used as variable name char="+c);
-      }
+    pair<string, ComplexNumber> pars_stream() {
+        string variable_name;
+        while (!stream.empty()) {
+            char c = stream.get();
+            if (c == '=') {
+                break;
+            }
+            else if ('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_') {
+                variable_name += c;
+            }
+            else if ('0' <= c && c <= '9') {
+                if (!variable_name.empty())
+                {
+                    variable_name += c;
+                }
+                else {
+                    throw VariableConverterVariableException("number can not be used as variable name");
+                }
+            }
+            else {
+                throw VariableConverterVariableException((string)"this char csn not be used as variable name char=" + c);
+            }
+        }
+        string complex_num_str;
+        while (!stream.empty()) {
+            char c = stream.get();
+            if (c == stop_char) {
+                break;
+            }
+            complex_num_str += c;
+        }
+        auto num = ComplexNumber(complex_num_str);
+        pair<string, ComplexNumber> result{ variable_name, num };
+        return result;
     }
-    string complex_num_str;
-    while(!stream.empty()){
-      char c = stream.get();
-      if (c == stop_char) {
-        break;
-      }
-      complex_num_str += c;
-    }
-
-    pair<string, ComplexNumber> result{variable_name, ComplexNumber(complex_num_str)};
-    return result;
-  }
 public:
-  VariableConverter(instream new_stream) {
-      stream = new_stream;
-  }
-  VariableConverter(string expression_str) {
-      stream << expression_str;
-  }
-  pair<string, ComplexNumber> convert(){
-    instream temp_stream = stream;
-    auto result = pars_stream();
-    stream = temp_stream;
-    return result;
-  }
+    VariableConverter(instream new_stream) {
+        stream = new_stream;
+    }
+    VariableConverter(string expression_str) {
+        stream << expression_str;
+    }
+    ~VariableConverter(){
+
+    }
+    pair<string, ComplexNumber> convert() {
+        instream temp_stream = stream;
+        auto result = pars_stream();
+        stream = temp_stream;
+        return result;
+    }
 };
 
 
@@ -946,8 +1245,28 @@ private:
 
     shared_ptr<BaseExpression> number() {
         string var_name;
+        bool start_create_new_number = 0;
+        char num_start_bracket = '[';
+        char num_end_bracket = ']';
+        string new_num;
         while (1) {
             char c = stream.get();
+            if (!start_create_new_number)
+            {
+                if (var_name.empty() && c == num_start_bracket)
+                {
+                    start_create_new_number = 1;
+                    continue;
+                }
+            }
+            else {
+                if (c == num_end_bracket)
+                {
+                    break;
+                }
+                new_num += c;
+                continue;
+            }
             if ('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_') {
                 var_name += c;
             }
@@ -956,7 +1275,7 @@ private:
                 {
                     var_name += c;
                 }
-                else{
+                else {
                     throw ExpressionConverterUndefindVariable("number can not be used as variable name");
                 }
             }
@@ -965,20 +1284,26 @@ private:
                 break;
             }
         }
-        if (!variables.count(var_name))
+        if (!start_create_new_number)
         {
-            throw ExpressionConverterUndefindVariable("undefinded variable: " + var_name);
+            if (!variables.count(var_name))
+            {
+                throw ExpressionConverterUndefindVariable("undefinded variable: " + var_name);
+            }
+            auto result = variables[var_name];
+            // cout << "exp var_name: " << var_name << " num: " << result
+            return shared_ptr<ValueExpression>(new ValueExpression(ComplexNumber(result)));
         }
-        auto result = variables[var_name];
-        auto res = make_shared<ValueExpression>(ComplexNumber(result));
-        return res;
+
+        cout << "WTF" << endl;
+        return shared_ptr<ValueExpression>(new ValueExpression(ComplexNumber(new_num)));
     }
 
     shared_ptr<BaseExpression> product() {
         shared_ptr<BaseExpression> num;
         char op = stream.get();
         if (op == '(') {
-            num = make_shared<BracketExpression>(this->sum());
+            num = this->sum();
             char end_bracket = stream.get();
         }
         else {
@@ -990,11 +1315,11 @@ private:
         switch (op) {
         case '*':
             next_result = this->product();
-            return make_shared<ProductExpression>(num, next_result);
+            return shared_ptr<ProductExpression>(new ProductExpression(num, next_result));
             break;
         case '/':
             next_result = this->product();
-            return make_shared<DivisionExpression>(num, next_result);
+            return shared_ptr<DivisionExpression>(new DivisionExpression(num, next_result));
             break;
         default:
             stream.putback(op);
@@ -1010,11 +1335,11 @@ private:
         switch (op) {
         case '+':
             next_result = this->sum();
-            return make_shared<SumExpression>(num, next_result);;
+            return shared_ptr<SumExpression>(new SumExpression(num, next_result));
             break;
         case '-':
             next_result = this->sum();
-            return make_shared<DifferenceExpression>(num, next_result);;
+            return shared_ptr<DifferenceExpression>(new DifferenceExpression(num, next_result));
             break;
         default:
             stream.putback(op);
@@ -1047,135 +1372,134 @@ class LoaderUndefindedCommand : public exception
 private:
 
 public:
-  string m_error;
+    string m_error;
 
-  LoaderUndefindedCommand()
-  {
-    m_error = "loader cndefinded command";
-  }
-  LoaderUndefindedCommand(string error)
-  {
-    m_error = error.c_str();
-  }
+    LoaderUndefindedCommand()
+    {
+        m_error = "loader cndefinded command";
+    }
+    LoaderUndefindedCommand(string error)
+    {
+        m_error = error.c_str();
+    }
 
-  const char* what() const noexcept { return m_error.c_str(); }
+    const char* what() const noexcept { return m_error.c_str(); }
 };
 
 
 class Loader {
 private:
-  virtual string get_line() = 0;
-  map<string, ComplexNumber> variables;
-  vector<ArithmeticExpression> expressions;
-  string variables_command = "variables";
-  string expressions_command = "expressions";
-  string end_command = "end";
+    virtual string get_line() = 0;
+    map<string, ComplexNumber> variables;
+    vector<ArithmeticExpression> expressions;
+    string variables_command = "variables";
+    string expressions_command = "expressions";
+    string end_command = "end";
 
-  bool is_letter(char c){
-    return (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'));
-  };
+    bool is_letter(char c) {
+        return (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'));
+    };
 
 public:
-  int pars_command(string str){
-    string command;
-    bool command_start = 0;
-    for (auto c : str) {
-      if (!command_start) {
-        if (is_letter(c)) {
-          command_start = 1;
-        }
-        else{
-          continue;
-        }
-      }
-      if (is_letter(c)) {
-        command += c;
-      }
-      else{
-        break;
-        // throw LoaderUndefindedCommand("character nust be a letter char="+c+"\nrise in string="+str);
-      }
+    int pars_command(string str) {
+        string command;
+        bool command_start = 0;
+        for (auto c : str) {
+            if (!command_start) {
+                if (is_letter(c)) {
+                    command_start = 1;
+                }
+                else {
+                    continue;
+                }
+            }
+            if (is_letter(c)) {
+                command += c;
+            }
+            else {
+                break;
+                // throw LoaderUndefindedCommand("character nust be a letter char="+c+"\nrise in string="+str);
+            }
 
-    }
-    if (command.empty()) {
-      return -1;
-    }
-    if (command == end_command) {
-      return 0;
-    }
-    if (command == variables_command) {
-      return 1;
-    }
-    if (command == expressions_command) {
-      return 2;
+        }
+        if (command.empty()) {
+            return -1;
+        }
+        if (command == end_command) {
+            return 0;
+        }
+        if (command == variables_command) {
+            return 1;
+        }
+        if (command == expressions_command) {
+            return 2;
+        }
+
+        // throw LoaderUndefindedCommand("unknown command: " + command + "\nrise in string=" + str);
+        return -1;
     }
 
-    // throw LoaderUndefindedCommand("unknown command: " + command + "\nrise in string=" + str);
-    return -1;
-  }
-
-  void pars_variables(string str){
-    VariableConverter var_conv(str);
-    auto var = var_conv.convert();
-    // cout << var.first << endl;
-    variables[var.first] = var.second;
-  }
-
-  void pars_expressions(string str){
-    ExpressionConverter exp_conv(str, variables);
-    auto exp = exp_conv.convert();
-    expressions.push_back(exp);
-  }
-
-  void pars_stream(){
-    bool is_command_run = 0;
-    int command_status = -1;
-    while(1){
-      string line = get_line();
-      // cout << line << " " << command_status << endl;
-      if (!is_command_run) {
-        command_status = pars_command(line);
-        // cout << "new " << line << " " << command_status << endl;
-        if (command_status != -1) {
-          if (command_status == 0) {
-            // cout << "program finished" << endl;
-            break;
-          }
-          is_command_run = 1;
-        }
-      }
-      else{
-        if (pars_command(line) == 0) {
-          is_command_run = 0;
-          continue;
-        }
-        if (command_status == 1){
-          // cout << "command pars_variables" << endl;
-          pars_variables(line);
-        }
-        else if (command_status == 2){
-          // cout << "command pars_expressions" << endl;
-          pars_expressions(line);
-        }
-      }
+    void pars_variables(string str) {
+        VariableConverter var_conv(str);
+        auto var = var_conv.convert();
+        variables[var.first] = var.second;
     }
-  }
-  map<string, ComplexNumber> get_variables(){
-    return variables;
-  }
-  vector<ArithmeticExpression> get_expressions(){
-    return expressions;
-  }
+
+    void pars_expressions(string str) {
+        ExpressionConverter exp_conv(str, variables);
+        auto exp = exp_conv.convert();
+        expressions.push_back(exp);
+    }
+
+    void pars_stream() {
+        bool is_command_run = 0;
+        int command_status = -1;
+        while (1) {
+            string line = get_line();
+            // cout << line << " " << command_status << endl;
+            if (!is_command_run) {
+                command_status = pars_command(line);
+                // cout << "new " << line << " " << command_status << endl;
+                if (command_status != -1) {
+                    if (command_status == 0) {
+                        // cout << "program finished" << endl;
+                        break;
+                    }
+                    is_command_run = 1;
+                }
+            }
+            else {
+                if (pars_command(line) == 0) {
+                    is_command_run = 0;
+                    continue;
+                }
+                if (command_status == 1) {
+                    // cout << "command pars_variables" << endl;
+                    pars_variables(line);
+                }
+                else if (command_status == 2) {
+                    // cout << "command pars_expressions" << endl;
+                    pars_expressions(line);
+                }
+            }
+        }
+    }
+    map<string, ComplexNumber> get_variables() {
+        return variables;
+    }
+    vector<ArithmeticExpression> get_expressions() {
+        return expressions;
+    }
 };
 
 
-class ConsoleLoader:public Loader {
+class ConsoleLoader :public Loader {
 private:
-  string get_line() override{
-    string temp;
-    getline(cin, temp);
-    return temp;
-  }
+    string get_line() override {
+        string temp;
+        getline(cin, temp);
+        return temp;
+    }
 public:
 };
 
@@ -1185,42 +1509,43 @@ class FileLoaderException : public exception
 private:
 
 public:
-  string m_error;
+    string m_error;
 
-  FileLoaderException()
-  {
-    m_error = "file loader exception";
-  }
-  FileLoaderException(string error)
-  {
-    m_error = error;
-  }
+    FileLoaderException()
+    {
+        m_error = "file loader exception";
+    }
+    FileLoaderException(string error)
+    {
+        m_error = error;
+    }
 
-  const char* what() const noexcept { return m_error.c_str(); }
+    const char* what() const noexcept { return m_error.c_str(); }
 };
 
-class FileLoader:public Loader {
-private:
-  ifstream file;
-  string get_line() override{
-    string temp;
-    getline(file, temp);
-    return temp;
-  }
-public:
-  FileLoader(string file_path) {
-    file.open(file_path);
-    if (!file.is_open()) {
-      throw FileLoaderException("could not open file whith path="+file_path);
-    }
-  }
-  // FileLoader(ifstream new_file) {
-  //   file = new_file;
-  // }
 
-  ~FileLoader(){
-    file.close();
-  }
+class FileLoader :public Loader {
+private:
+    ifstream file;
+    string get_line() override {
+        string temp;
+        getline(file, temp);
+        return temp;
+    }
+public:
+    FileLoader(string file_path) {
+        file.open(file_path);
+        if (!file.is_open()) {
+            throw FileLoaderException("could not open file whith path=" + file_path);
+        }
+    }
+    // FileLoader(ifstream new_file) {
+    //   file = new_file;
+    // }
+
+    ~FileLoader() {
+        file.close();
+    }
 };
 
 
@@ -1228,20 +1553,37 @@ public:
 int main() {
     string path = "lab5_tests.txt";
     // FileLoader *loader = new FileLoader(path);
-    ConsoleLoader *loader = new ConsoleLoader();
+    ConsoleLoader* loader = new ConsoleLoader();
     loader->pars_stream();
     auto variables = loader->get_variables();
+    for (auto var : variables)
+    {
+        cout << var.first << " " << var.second << endl;
+    }
     auto expressions = loader->get_expressions();
     delete loader;
     // cout << "use_count(): " << expressions[0].use_count() << endl;
 
+
+    VectorAnalog<ArithmeticExpression> my_vect;
     for (auto exp : expressions) {
-      exp.print_expression();
-      cout << "size: " << exp.size() << endl;
-      cout << "use_count(): " << exp.use_count() << endl;
-      exp.print_structure();
-      cout << exp.count_value() << endl;
+        exp.print_expression();
+        cout << "size: " << exp.size() << endl;
+        cout << "use_count(): " << exp.use_count() << endl;
+        exp.print_structure();
+        cout << exp.count_value() << endl;
+        my_vect.append(exp);
     }
+
+    VectorAnalog<ArithmeticExpression>::Iterator iter = my_vect.begin();
+    for (int i = 0; i < my_vect.size(); i++)
+    {
+        (*(iter+=i)).print_expression();
+    }
+    //for (; i != my_vect.end(); i++)
+    //{
+    //    (*i).print_expression();
+    //}
 
     auto first_exp = expressions[0];
     cout << "it test" << endl;
@@ -1249,8 +1591,31 @@ int main() {
     cout << "use_count(): " << first_exp.use_count() << endl;
 
     // auto sub_exp = first_exp.get_by_id(2);
+    
+    /*
     auto i = first_exp.begin();
-    first_exp.print_expression();
+    i++;
+    auto item = (*i);
+    item->print_expression();
+    cout << endl;
+    */
+
+
+    for (int  i = 0; i < first_exp.size(); i++)
+    {
+        first_exp[i]->print_expression();
+        first_exp[i]->print_expression();
+    }
+
+    /*
+    auto i = first_exp.begin();
+    for (; i != first_exp.end(); i++)
+    {
+        (*i)->print_expression();
+        cout << endl;
+    }
+    */
+    
     // cout << "strat" << endl;
     // cout << (i != first_exp.end()) << endl;
     // for (; i != first_exp.end(); i++) {
@@ -1261,3 +1626,21 @@ int main() {
     // (*f_it)->print_expression();
 
 }
+
+/*
+
+variables
+a=1
+b=1-i
+c=i
+end
+expressions
+a*b+c
+((a+b))+c
+end
+end
+
+
+a+b+c+[1+2i]
+
+*/
