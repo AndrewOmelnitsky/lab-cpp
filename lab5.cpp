@@ -375,7 +375,6 @@ public:
     };
 };
 
-
 bool operator == (ComplexNumber num1, ComplexNumber num2)
 {
     return num1.module() == num2.module();
@@ -849,6 +848,71 @@ public:
 
 
 template< typename T >
+class ICompare {
+public:
+    virtual bool compare(T obj1, T obj2) = 0;
+};
+
+
+class ICompareArithmeticExp : public ICompare<ArithmeticExpression>
+{ };
+
+
+class ICompareArithmeticExpB : public ICompareArithmeticExp
+{
+public:
+    bool compare(ArithmeticExpression obj1, ArithmeticExpression obj2) override {
+        return obj1.count_value() > obj2.count_value();
+    }
+};
+
+
+class ICompareArithmeticExpL : public ICompareArithmeticExp
+{
+public:
+    bool compare(ArithmeticExpression obj1, ArithmeticExpression obj2) override {
+        return obj1.count_value() < obj2.count_value();
+    }
+};
+
+
+class ICompareArithmeticExpNE : public ICompareArithmeticExp
+{
+public:
+    bool compare(ArithmeticExpression obj1, ArithmeticExpression obj2) override {
+        return obj1.count_value() != obj2.count_value();
+    }
+};
+
+
+class ICompareArithmeticExpE : public ICompareArithmeticExp
+{
+public:
+    bool compare(ArithmeticExpression obj1, ArithmeticExpression obj2) override {
+        return obj1.count_value() == obj2.count_value();
+    }
+};
+
+
+class ICompareArithmeticExpBE : public ICompareArithmeticExp
+{
+public:
+    bool compare(ArithmeticExpression obj1, ArithmeticExpression obj2) override {
+        return obj1.count_value() >= obj2.count_value();
+    }
+};
+
+
+class ICompareArithmeticExpLE : public ICompareArithmeticExp
+{
+public:
+    bool compare(ArithmeticExpression obj1, ArithmeticExpression obj2) override {
+        return obj1.count_value() <= obj2.count_value();
+    }
+};
+
+
+template< typename T >
 class VectorAnalog {
 private:
     struct Node {
@@ -869,7 +933,12 @@ private:
 public:
     class Iterator {
     public:
-        Iterator(Node* node) : value_node(node) { }
+        Iterator(Node* node) : value_node(node)
+        { };
+        Iterator(const Iterator& it)
+        {
+            value_node = it.value_node;
+        };
 
         bool operator==(const Iterator& iter) const {
             if (this == &iter) {
@@ -889,30 +958,30 @@ public:
             return T();
         }
 
-        Iterator operator++ (int) {
-            if (value_node) {
-                Iterator new_iter(value_node);
-                value_node = value_node->next;
-                return new_iter;
-            }
-        }
-        Iterator operator-- (int) {
-            if (value_node) {
-                Iterator new_iter(value_node);
-                value_node = value_node->last;
-                return new_iter;
-            }
-        }
         Iterator operator++ () {
             if (value_node) {
                 value_node = value_node->next;
-                return Iterator(value_node);
+                return *this;
             }
         }
         Iterator operator-- () {
             if (value_node) {
                 value_node = value_node->last;
-                return Iterator(value_node);
+                return *this;
+            }
+        }
+        Iterator operator++ (int) {
+            if (value_node) {
+                Iterator prev = *this;
+                ++(*this);
+                return prev;
+            }
+        }
+        Iterator operator-- (int) {
+            if (value_node) {
+                Iterator prev = *this;
+                --(*this);
+                return prev;
             }
         }
 
@@ -945,8 +1014,8 @@ public:
                     cout << "index out of range n: " << n << endl;
                 }
             }
-            Iterator new_iter(value_node);
-            return new_iter;
+
+            return *this;
         }
 
         Iterator operator+= (int n) {
@@ -960,8 +1029,8 @@ public:
                     cout << "index out of range n: " << n << endl;
                 }
             }
-            Iterator new_iter(value_node);
-            return new_iter;
+
+            return *this;
         }
 
         Node* get_node() {
@@ -971,6 +1040,7 @@ public:
     private:
         Node* value_node;
     };
+
 
     VectorAnalog() :head(NULL) {};
 
@@ -994,6 +1064,26 @@ public:
         
 
         head = node;
+    }
+
+    void pop(Iterator iter) {
+        auto del_item = iter.get_node();
+        if (del_item)
+        {
+            if (iter == begin())
+            {
+                head = del_item->next;
+            }
+            else if (iter == end()) {
+
+            }
+            else {
+
+            }
+            del_item->last->next = del_item->next;
+            del_item->next->last = del_item->last;
+            delete del_item;
+        }
     }
 
     void pop(int n = -1) {
@@ -1054,8 +1144,8 @@ public:
     }
 
     Iterator last() {
-        Iterator result;
-        Iterator temp;
+        Iterator result = begin();
+        Iterator temp = begin();
         for (Iterator i = begin(); i != end(); i++)
         {
             temp = i;
@@ -1076,6 +1166,31 @@ public:
 
     bool empty() {
         return head == NULL;
+    }
+
+    void swap_nodes(Iterator it1, Iterator it2) {
+        auto n1 = it1.get_node();
+        auto n2 = it2.get_node();
+        auto temp_next = n1->next;
+        auto temp_last = n1->last;
+        n1->next = n2->next;
+        n1->last = n2->last;
+        n2->next = temp_next;
+        n2->last = temp_last;
+
+    }
+
+    void sort(shared_ptr<ICompare<T>> compare) {
+        for (Iterator i = begin(); i != end(); i++)
+        {
+            for (Iterator j = begin(); j != end(); j++)
+            {
+                if (compare->compare(*i, *j))
+                {
+                    swap_nodes(i, j);
+                }
+            }
+        }
     }
 
 };
@@ -1303,7 +1418,7 @@ private:
         shared_ptr<BaseExpression> num;
         char op = stream.get();
         if (op == '(') {
-            num = this->sum();
+            num = shared_ptr<BaseExpression>(new BracketExpression(this->sum()));
             char end_bracket = stream.get();
         }
         else {
@@ -1401,7 +1516,7 @@ private:
     };
 
 public:
-    int pars_command(string str) {
+    int pars_commands(string str) {
         string command;
         bool command_start = 0;
         for (auto c : str) {
@@ -1458,7 +1573,7 @@ public:
             string line = get_line();
             // cout << line << " " << command_status << endl;
             if (!is_command_run) {
-                command_status = pars_command(line);
+                command_status = pars_commands(line);
                 // cout << "new " << line << " " << command_status << endl;
                 if (command_status != -1) {
                     if (command_status == 0) {
@@ -1469,7 +1584,7 @@ public:
                 }
             }
             else {
-                if (pars_command(line) == 0) {
+                if (pars_commands(line) == 0) {
                     is_command_run = 0;
                     continue;
                 }
@@ -1562,7 +1677,6 @@ int main() {
     }
     auto expressions = loader->get_expressions();
     delete loader;
-    // cout << "use_count(): " << expressions[0].use_count() << endl;
 
 
     VectorAnalog<ArithmeticExpression> my_vect;
@@ -1576,55 +1690,19 @@ int main() {
     }
 
     VectorAnalog<ArithmeticExpression>::Iterator iter = my_vect.begin();
-    for (int i = 0; i < my_vect.size(); i++)
+    for (iter = my_vect.last(); iter != my_vect.end(); iter--)
     {
-        (*(iter+=i)).print_expression();
-    }
-    //for (; i != my_vect.end(); i++)
-    //{
-    //    (*i).print_expression();
-    //}
-
-    auto first_exp = expressions[0];
-    cout << "it test" << endl;
-    first_exp.print_expression();
-    cout << "use_count(): " << first_exp.use_count() << endl;
-
-    // auto sub_exp = first_exp.get_by_id(2);
-    
-    /*
-    auto i = first_exp.begin();
-    i++;
-    auto item = (*i);
-    item->print_expression();
-    cout << endl;
-    */
-
-
-    for (int  i = 0; i < first_exp.size(); i++)
-    {
-        first_exp[i]->print_expression();
-        first_exp[i]->print_expression();
+        (*iter).print_expression();
     }
 
-    /*
-    auto i = first_exp.begin();
-    for (; i != first_exp.end(); i++)
-    {
-        (*i)->print_expression();
-        cout << endl;
-    }
-    */
-    
-    // cout << "strat" << endl;
-    // cout << (i != first_exp.end()) << endl;
-    // for (; i != first_exp.end(); i++) {
-    //   first_exp.print_expression();
-    //   (*i)->print_expression();
-    // }
-    // auto f_it = first_exp.begin();
-    // (*f_it)->print_expression();
+    shared_ptr<ICompareArithmeticExp> simple_compare(new ICompareArithmeticExpL());
+    my_vect.sort(simple_compare);
 
+    for (auto item : my_vect)
+    {
+        item.print_expression();
+        cout << item.count_value() << " " << item.count_value().module() << endl;
+    }
 }
 
 /*
@@ -1634,10 +1712,13 @@ a=1
 b=1-i
 c=i
 end
+
 expressions
 a*b+c
 ((a+b))+c
+a+b+c+[1+i]
 end
+
 end
 
 
