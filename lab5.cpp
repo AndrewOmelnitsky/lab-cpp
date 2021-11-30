@@ -411,7 +411,7 @@ public:
     virtual void print_structure(int depth = 0, bool is_right = false, bool* rec = new bool[10000]) = 0;
     virtual bool find(ComplexNumber num) = 0;
     virtual int size() = 0;
-    virtual pair<int, shared_ptr<BaseExpression>> get_by_id(int n) = 0;
+    virtual pair<int, BaseExpression*> get_by_id(int n) = 0;
 
     BaseExpression() {
         // shared_this = shared_ptr<BaseExpression>(this);
@@ -471,14 +471,14 @@ public:
         return 1;
     }
 
-    pair<int, shared_ptr<BaseExpression>> get_by_id(int n) override {
+    pair<int, BaseExpression*> get_by_id(int n) override {
         // cout << n-1 << endl;
-        shared_ptr<BaseExpression> res(this);
+        BaseExpression* res(this);
         if (n == 0)
         {
-            return pair<int, shared_ptr<BaseExpression>>{0, res};
+            return pair<int, BaseExpression*>{-1, res};
         }
-        return pair<int, shared_ptr<BaseExpression>>{n - 1, res};
+        return pair<int, BaseExpression*>{n - 1, res};
     }
 };
 
@@ -514,7 +514,7 @@ public:
     bool find(ComplexNumber num) override {
         return expression->find(num);
     }
-    
+
     void print_structure(int depth = 0, bool is_right = false, bool* rec = new bool[10000]) override {
         for (int i = 0; i < depth; i++) {
             if (i == depth - 1 && is_right)
@@ -541,11 +541,11 @@ public:
         return expression->size() + 1;
     }
 
-    pair<int, shared_ptr<BaseExpression>> get_by_id(int n) override {
+    pair<int, BaseExpression*> get_by_id(int n) override {
         // cout << "BracketExpression " << n << endl;
         if (n == 0) {
-            shared_ptr<BaseExpression> res(this);
-            return pair<int, shared_ptr<BaseExpression>>{n, res};
+            BaseExpression* res(this);
+            return pair<int, BaseExpression*>{-1, res};
         }
         n -= 1;
         return expression->get_by_id(n);
@@ -630,18 +630,21 @@ public:
         return left->size() + right->size() + 1;
     }
 
-    pair<int, shared_ptr<BaseExpression>> get_by_id(int n) override {
+    pair<int, BaseExpression*> get_by_id(int n) override {
         // cout << "BinaryExpression " << n << endl;
         if (n == 0) {
-            shared_ptr<BaseExpression> res(this);
-            return pair<int, shared_ptr<BaseExpression>>{n, res};
+            BaseExpression* res(this);
+            return pair<int, BaseExpression*>{-1, res};
         }
         n -= 1;
+        // cout << "binary st: " << n << endl;
         auto temp_l = left->get_by_id(n);
         n = temp_l.first;
-        if (n == 0) {
+        if (n == -1) {
             return temp_l;
         }
+        // cout << "binary l: " << n << endl;
+        // cout << "binary r: " << n << endl;
         return right->get_by_id(n);
     }
 };
@@ -781,43 +784,34 @@ public:
         return expression.use_count();
     }
 
-    shared_ptr<BaseExpression> get_by_id(int n) {
+    BaseExpression* get_by_id(int n) {
         // cout << "strat getting id" << endl;
         if (n < 0 || n > expression->size())
         {
             cout << "index out of rangne" << endl;
         }
         auto ans = expression->get_by_id(n);
-        //if (ans.first > 0) {
-        //    cout << "un find elm" << endl;
-        //}
-        cout << "false print(";
-        ans.second->print_expression();
-        cout << ")" << endl;
-        // cout << "end getting id" << endl;
         return ans.second;
     }
 
-    shared_ptr<BaseExpression> operator[] (int n) {
+    BaseExpression* operator[] (int n) {
         return this->get_by_id(n);
     }
 
     class Iterator {
         int i = 0;
-        shared_ptr<ArithmeticExpression> it_obj;
+        ArithmeticExpression* it_obj;
     public:
 
-        Iterator(shared_ptr<ArithmeticExpression> new_it_obj) :it_obj(new_it_obj)
+        Iterator(ArithmeticExpression* new_it_obj) :it_obj(new_it_obj)
         {}
 
-        Iterator(int n, shared_ptr<ArithmeticExpression> new_it_obj) {
+        Iterator(int n, ArithmeticExpression* new_it_obj) {
             it_obj = new_it_obj;
             i = n;
         }
 
-        ~Iterator() {
-            cout << "Iterator destructor" << endl;
-        }
+        ~Iterator() {};
 
         Iterator operator+ (int n) { return Iterator(i + n, it_obj); }
         Iterator operator- (int n) { return Iterator(i - n, it_obj); }
@@ -830,18 +824,20 @@ public:
         bool operator== (const Iterator& it) { return it.i == i; }
         bool operator!= (const Iterator& it) { return it.i != i; }
 
-        shared_ptr<BaseExpression> operator* () { return it_obj->get_by_id(i); }
+        BaseExpression* operator* () { return it_obj->get_by_id(i); }
+
+        int get_id(){
+          return i;
+        }
     };
 
     Iterator begin() {
-        shared_ptr<ArithmeticExpression> shared_this(this);
-        return Iterator(0, shared_this);
+        return Iterator(0, this);
     }
 
     Iterator end() {
         int exp_size = expression->size();
-        shared_ptr<ArithmeticExpression> shared_this(this);
-        Iterator it(exp_size, shared_this);
+        Iterator it(exp_size, this);
         return it;
     }
 };
@@ -1038,7 +1034,7 @@ public:
         }
 
     private:
-        Node* value_node;
+      Node* value_node;
     };
 
 
@@ -1061,7 +1057,7 @@ public:
         {
             node->next = head;
         }
-        
+
 
         head = node;
     }
@@ -1113,7 +1109,7 @@ public:
             del_item->next->last = del_item->last;
             delete del_item;
         }
-        
+
         for (; iter != end(); iter++)
         {
 
@@ -1169,27 +1165,86 @@ public:
     }
 
     void swap_nodes(Iterator it1, Iterator it2) {
-        auto n1 = it1.get_node();
-        auto n2 = it2.get_node();
-        auto temp_next = n1->next;
-        auto temp_last = n1->last;
-        n1->next = n2->next;
-        n1->last = n2->last;
-        n2->next = temp_next;
-        n2->last = temp_last;
+      auto n1 = it1.get_node();
+      auto n2 = it2.get_node();
+      if (head == n1){
+        head = n2;
+      }
+      else if (head == n2) {
+        head = n1;
+      }
+      if (n1->next == n2) {
+        if (n1->last == NULL) {
+          n1->next = n2->next;
+          n1->last = n2;
+          n2->next = n1;
+          n2->last = NULL;
+          if (n1->next != NULL) {
+            n1->next->last = n1;
+          }
+        }
+        else {
+          auto temp_n1_last = n1->last;
+          n1->next = n2->next;
+          n1->last = n2;
+          n2->next = n1;
+          n2->last = temp_n1_last;
+          if (n1->next != NULL) {
+            n1->next->last = n1;
+          }
+          n2->last->next = n2;
+        }
+      }
+      else if(n1->last == n2){
+        if (n2->last == NULL) {
+          n2->next = n1->next;
+          n2->last = n1;
+          n1->next = n2;
+          n1->last = NULL;
+          if (n2->next != NULL) {
+            n2->next->last = n2;
+          }
+        }
+        else {
+          auto temp_n2_last = n2->last;
+          n2->next = n1->next;
+          n2->last = n1;
+          n1->next = n2;
+          n1->last = temp_n2_last;
+          if (n2->next != NULL) {
+            n2->next->last = n2;
+          }
+          n1->last->next = n1;
+        }
+      }
+      else{
+        swap(n1->next, n2->next);
+        swap(n1->last, n2->last);
+        if (n1->next != NULL) {
+          n1->next->last = n1;
+        }
+        if (n1->last != NULL) {
+          n1->last->next = n1;
+        }
+        if (n2->next != NULL) {
+          n2->next->last = n2;
+        }
+        if (n2->last != NULL) {
+          n2->last->next = n2;
+        }
+      }
 
     }
 
-    void sort(shared_ptr<ICompare<T>> compare) {
-        for (Iterator i = begin(); i != end(); i++)
-        {
-            for (Iterator j = begin(); j != end(); j++)
-            {
-                if (compare->compare(*i, *j))
-                {
-                    swap_nodes(i, j);
-                }
-            }
+    void sort(shared_ptr<ICompare<T>> compare){
+      int n = size();
+      for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++) {
+          auto iter_i = begin()+i;
+          auto iter_j = begin()+j;
+          if (compare->compare(*iter_i, *iter_j)) {
+            swap_nodes(iter_i, iter_j);
+          };
         }
     }
 
@@ -1409,8 +1464,6 @@ private:
             // cout << "exp var_name: " << var_name << " num: " << result
             return shared_ptr<ValueExpression>(new ValueExpression(ComplexNumber(result)));
         }
-
-        cout << "WTF" << endl;
         return shared_ptr<ValueExpression>(new ValueExpression(ComplexNumber(new_num)));
     }
 
@@ -1506,6 +1559,7 @@ class Loader {
 private:
     virtual string get_line() = 0;
     map<string, ComplexNumber> variables;
+    map<string, ArithmeticExpression> expression_variables;
     vector<ArithmeticExpression> expressions;
     string variables_command = "variables";
     string expressions_command = "expressions";
@@ -1561,9 +1615,52 @@ public:
     }
 
     void pars_expressions(string str) {
+      auto temp_stream = instream(str);
+      bool is_variable_expression = 0;
+      while (!temp_stream.empty()){
+        char c = temp_stream.get();
+        if (c == '=') {
+            is_variable_expression = 1;
+            break;
+        }
+      }
+      if (is_variable_expression) {
+        temp_stream = instream(str);
+        string variable_name;
+        while (!temp_stream.empty()) {
+            char c = temp_stream.get();
+            if (c == '=') {
+                break;
+            }
+            else if ('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_') {
+                variable_name += c;
+            }
+            else if ('0' <= c && c <= '9') {
+                if (!variable_name.empty())
+                {
+                    variable_name += c;
+                }
+                else {
+                    throw VariableConverterVariableException("number can not be used as variable name");
+                }
+            }
+            else {
+                throw VariableConverterVariableException((string)"this char csn not be used as variable name char=" + c);
+            }
+          }
+          ExpressionConverter exp_conv(temp_stream, variables);
+          auto exp = exp_conv.convert();
+          expression_variables[variable_name] = exp;
+          variables[variable_name] = exp->count_value();
+          expressions.push_back(exp);
+      }
+      else{
         ExpressionConverter exp_conv(str, variables);
         auto exp = exp_conv.convert();
         expressions.push_back(exp);
+      }
+
+
     }
 
     void pars_stream() {
@@ -1599,8 +1696,20 @@ public:
             }
         }
     }
+    void set_variables(map<string, ComplexNumber> new_vars) {
+        variables = new_vars;
+    }
+    void set_expression_variables(map<string, ArithmeticExpression> new_exp_vars) {
+        expression_variables = new_exp_vars;
+    }
+    void set_expressions(vector<ArithmeticExpression> new_exp) {
+        expressions = new_exp;
+    }
     map<string, ComplexNumber> get_variables() {
         return variables;
+    }
+    map<string, ArithmeticExpression> get_expression_variables() {
+        return expression_variables;
     }
     vector<ArithmeticExpression> get_expressions() {
         return expressions;
@@ -1667,46 +1776,86 @@ public:
 
 int main() {
     string path = "lab5_tests.txt";
-    // FileLoader *loader = new FileLoader(path);
-    ConsoleLoader* loader = new ConsoleLoader();
-    loader->pars_stream();
-    auto variables = loader->get_variables();
-    for (auto var : variables)
-    {
-        cout << var.first << " " << var.second << endl;
-    }
-    auto expressions = loader->get_expressions();
-    delete loader;
+    FileLoader* loader1 = new FileLoader(path);
+    ConsoleLoader* loader2 = new ConsoleLoader();
+    loader1->pars_stream();
+    auto l1_variables = loader1->get_variables();
+    auto l1_expression_variables = loader1->get_expression_variables();
+    auto l1_expressions = loader1->get_expressions();
+    delete loader1;
 
+    loader2->set_variables(l1_variables);
+    loader2->set_expressions(l1_expressions);
+    loader2->pars_stream();
+    auto l2_variables = loader2->get_variables();
+    auto l2_expression_variables = loader2->get_expression_variables();
+    auto l2_expressions = loader2->get_expressions();
 
     VectorAnalog<ArithmeticExpression> my_vect;
-    for (auto exp : expressions) {
+    for (auto exp : l2_expressions) {
         exp.print_expression();
         cout << "size: " << exp.size() << endl;
-        cout << "use_count(): " << exp.use_count() << endl;
         exp.print_structure();
-        cout << exp.count_value() << endl;
+        cout << "value: " << exp.count_value() << endl;
         my_vect.append(exp);
     }
 
-    VectorAnalog<ArithmeticExpression>::Iterator iter = my_vect.begin();
-    for (iter = my_vect.last(); iter != my_vect.end(); iter--)
-    {
-        (*iter).print_expression();
-    }
+    // auto iter = my_vect.begin();
+    // for (; iter != my_vect.end(); iter++)
+    // {
+    //     (*iter).print_expression();
+    // }
 
-    shared_ptr<ICompareArithmeticExp> simple_compare(new ICompareArithmeticExpL());
+    shared_ptr<ICompareArithmeticExp> simple_compare;
+
+    simple_compare = shared_ptr<ICompareArithmeticExp>(new ICompareArithmeticExpB());
     my_vect.sort(simple_compare);
-
+    cout << "-----------------" << endl;
+    cout << "sort <-: " << endl;
     for (auto item : my_vect)
     {
+        cout << item.count_value() << " ";
         item.print_expression();
-        cout << item.count_value() << " " << item.count_value().module() << endl;
     }
+    cout << "-----------------" << endl;
+
+    cout << "-----------------" << endl;
+    simple_compare = shared_ptr<ICompareArithmeticExp>(new ICompareArithmeticExpL());
+    my_vect.sort(simple_compare);
+    cout << "sort ->: " << endl;
+    for (auto item : my_vect)
+    {
+        cout << item.count_value() << " ";
+        item.print_expression();
+    }
+    cout << "-----------------" << endl;
+
+
+    auto first_exp = l2_expressions[0];
+    cout << "iterated expression: ";
+    first_exp.print_expression();  cout << endl;
+    for (auto i = first_exp.begin(); i != first_exp.end(); i++) {
+      cout << "inner value: "  << i.get_id() << " " << (*i)->count_value() << endl;
+      (*i)->print_expression(); cout << endl;
+      (*i)->print_structure();
+    }
+    // for (auto inner_expression : first_exp) {
+    //   cout << "inner value: " << (*i)->count_value() << endl;
+    //   cout << (*i)->print_structure() << endl;
+    // }
 }
 
 /*
+base test:
+expressions
+a=a+b
+a=a+[2]*[2]
+end
+end
 
+
+
+test1:
 variables
 a=1
 b=1-i
@@ -1717,11 +1866,53 @@ expressions
 a*b+c
 ((a+b))+c
 a+b+c+[1+i]
+(a+b)*c
 end
 
 end
 
 
-a+b+c+[1+2i]
+
+test2:
+variables
+a=123
+b=321
+end
+expressions
+a=a+b
+a=a+[2]
+end
+end
+
+
+
+test3:
+variables
+a=1;
+end
+
+variables
+b=1+1i;
+c=1i;
+end
+
+expressions
+(a+b)*c;
+a+b+c
+end
+
+expressions
+a*(b*c)
+end
+
+variables
+a=0;
+end
+
+expressions
+a;
+end
+
+end
 
 */
